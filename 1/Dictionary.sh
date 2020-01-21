@@ -55,4 +55,4 @@ do
         echo $word : ${dict[$word]}
     fi
     
- done
+done
