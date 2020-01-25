@@ -1,4 +1,4 @@
- #include <stdio.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <linux/limits.h>
@@ -8,7 +8,7 @@
 #include <sys/dir.h>
 #include <unistd.h>
 #include <fcntl.h>
-//#include <process.h>
+#include <dirent.h>
 
 #define RESET "\033[0m"
 #define KNRM "\x1B[0m"
@@ -22,6 +22,7 @@
 #define BGRN "\033[1m\033[32m"
 #define BBLU "\033[1m\033[34m"
 #define BWHT "\033[1m\033[37m"
+
 
 int main()
 {
@@ -42,25 +43,8 @@ int main()
 
     /* Create the handle */
     snprintf(handle, sizeof(handle), "%s@%s:", username, hostname);
-    void cd(char pth[])
-    {
-        char path[200];
-        strcpy(path, pth);
-
-        char cwd[200];
-        if (pth[0] != '/')
-        { // true for the dir in cwd
-            // getcwd(cwd,sizeof(cwd));
-            strcat(cwd, "/");
-            strcat(cwd, path);
-            chdir(cwd);
-        }
-        else
-        { //true for dir w.r.t. /
-            chdir("..");
-        }
-        return;
-    }
+    
+    
     printf("\n************************** LENGENDARY TERMINAL **************************\n\n");
     while (1)
     {
@@ -79,9 +63,7 @@ int main()
 
         /* Check if it has any further instruction like -a */
         char *command_args = strtok(NULL, " ");
-        char *command_args1 = strtok(NULL, " ");
-        char *command_args2 = strtok(NULL, " ");
-        //printf("%s %s %s",command,command_args,command_args2);
+
         /* Check which command is input */
         if (strcmp(command, "ls") == 0)
         {
@@ -100,37 +82,70 @@ int main()
         }
         else if (strcmp(command, "cd") == 0)
         {
-            char path[200];
-
-            strcpy(path, command_args);
-            if (strcmp(command_args, "..") == 0)
-                chdir("..");
-            else if (command_args[0] != '/')
+            /* Check if the directory in the input is present */
+            DIR* dir = opendir(command_args);
+            if(dir)
             {
-                strcat(cwd, "/");
-                strcat(cwd, path);
+                closedir(dir);
+
+                /* Add a / before appending the new path to the old path */
+                if(command_args[0] != '/')
+                {
+                    strcat(cwd, "/");
+                }
+                strcat(cwd, command_args);
+
+                /* System call to change directory */
                 chdir(cwd);
             }
+            else
+            {
+                printf("No such directory exists");
+            }
+            
+            /* Update the handle if any changes are made */
             getcwd(cwd, sizeof(cwd));
-            //printf("Could not recognize the command %s", command);
         }
-        else if (strcmp(command, "mkdir") == 0)
+        else if(strcmp(command, "mkdir") == 0)
         {
-            if (command_args != NULL && strcmp(command_args, "-m") == 0)
+            if(command_args != NULL && strcmp(command_args, "-m") != 0)
             {
-                system("ls -a");
-            }
-            else if (command_args != NULL && strcmp(command_args, "-m") != 0)
-            {
-
-                // Creating a directory
+                /* Create a directory; Implement mkdir <filename> */
                 if (mkdir(command_args, 0777) == -1)
-                    printf("error");
+                {
+                    printf("Error in creating directory");
+                }
+            }
+            else if(command_args != NULL && strcmp(command_args, "-m") == 0)
+            {
+                /* Create a directory with -m option */
+
+                /* To store the mode; Eg : 0777, 0733 */
+                char *command_args_1 = strtok(NULL, " ");
+                
+                /* To store the filename */
+                char *command_args_2 = strtok(NULL, " ");
+                
+                /* Append and create the final command */
+                char md_command[PATH_MAX] = "";
+                snprintf(md_command, sizeof(md_command), "%s %s %s %s", command, command_args, command_args_1, command_args_2);
+                
+                if(command_args_1 && command_args_2)
+                {
+                    /* System call */
+                    system(md_command);
+                }
                 else
-                    printf("directory created");
+                {
+                    printf("Arguements not found\n");
+                }
+            }
+            else
+            {
+                printf("Arguement not found\n");
             }
         }
-        else if (strcmp(command, "cp") == 0)
+        /*else if (strcmp(command, "cp") == 0)
         {
             if (command_args != NULL && strcmp(command_args, "-u") == 0)
             {
@@ -298,7 +313,7 @@ int main()
              }
 
              }
-        }
+        }*/
     }
     return 0;
 }
