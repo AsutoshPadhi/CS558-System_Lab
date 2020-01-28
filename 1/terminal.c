@@ -106,6 +106,23 @@ int main()
             /* Update the handle if any changes are made */
             getcwd(cwd, sizeof(cwd));
         }
+        else if (strcmp(command, "cat") == 0)
+        {
+            char cat_command[PATH_MAX] = "";
+            
+            /* Append the command 'cat' */
+            strcat(cat_command, command);
+            while(command_args)
+            {
+                /* Continuously append till the end of line */
+                strcat(cat_command, " ");
+                strcat(cat_command, command_args);
+                command_args = strtok(NULL, " ");
+            }
+
+            /* Execute the system call */
+            system(cat_command);
+        }
         else if(strcmp(command, "mkdir") == 0)
         {
             if(command_args != NULL && strcmp(command_args, "-m") != 0)
@@ -138,6 +155,109 @@ int main()
                 else
                 {
                     printf("Arguements not found\n");
+                }
+            }
+            else
+            {
+                printf("Arguement not found\n");
+            }
+        }
+        else if(strcmp(command, "grep") == 0)
+        {
+            if(command_args != NULL && strcmp(command_args, "-n") == 0)
+            {
+                char *pattern_raw = strtok(NULL, " ");
+                char pattern[(int)strlen(pattern_raw)];
+                int j = 0;
+                for(int i=1; i<(int)strlen(pattern_raw)-1; i++)
+                {
+                    pattern[j++] = pattern_raw[i];
+                }
+                pattern[j] = '\0';
+
+                /* Take and check if filenames are valid */
+                int file_cnt = 0;
+                char *file_name = strtok(NULL, " ");
+                while(file_name != NULL)
+                {
+                    /* Check if the file is present */
+                    if(access(file_name,R_OK) != -1)
+                    {
+                        /* Read file */
+                        FILE *fp = NULL;
+                        char *line = NULL;
+                        size_t len = 0;
+                        ssize_t read;
+
+                        fp = fopen(file_name, "r");
+                        int line_cnt = 0;
+                        while((read = getline(&line, &len, fp)) != -1)
+                        {
+                            line_cnt++;
+                            /* Print the line if it contains the pattern */
+                            if(strstr(line, pattern) != NULL)
+                            {
+                                printf("%s : %d: %s", file_name, line_cnt, line);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        printf("The file %s was not found",file_name);
+                    }
+                    file_name = strtok(NULL, " ");
+                    file_cnt++;
+                }
+                if(file_name == NULL && file_cnt == 0)
+                {
+                    printf("Enter the file name\n");
+                }
+            }
+            else if(command_args != NULL && strcmp(command_args, "-n") != 0)
+            {
+                /* Extract pattern without quotes */
+                char pattern[(int)strlen(command_args)];
+                int j = 0;
+                for(int i=1; i<(int)strlen(command_args)-1; i++)
+                {
+                    pattern[j++] = command_args[i];
+                }
+                pattern[j] = '\0';
+
+                /* Take and check if filenames are valid */
+                int file_cnt = 0;
+                char *file_name = strtok(NULL, " ");
+                while(file_name != NULL)
+                {
+                    /* Check if the file is present */
+                    if(access(file_name,R_OK) != -1)
+                    {
+                        /* Read file */
+                        FILE *fp = NULL;
+                        char *line = NULL;
+                        size_t len = 0;
+                        ssize_t read;
+
+                        fp = fopen(file_name, "r");
+                        while((read = getline(&line, &len, fp)) != -1)
+                        {
+                            /* Print the line if it contains the pattern */
+                            if(strstr(line, pattern) != NULL)
+                            {
+                                printf("%s : %s", file_name, line);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        printf("The file %s was not found",file_name);
+                    }
+                    file_name = strtok(NULL, " ");
+                    file_cnt++;
+                }
+                if(file_name == NULL && file_cnt == 0)
+                {
+                    printf("Enter the file name\n");
                 }
             }
             else
@@ -278,42 +398,8 @@ int main()
             free(strData);
             fclose(ptrFileLog);
             fclose(ptrSummary);
-        }
-        else if (strcmp(command, "cat") == 0)
-        {
-           //static int i=1;
-             if (strcmp(command_args, "-n") != 0)
-            { int fdold,count;
-             char buffer[2000];
-            fdold=open(command_args, O_RDONLY);
-           while((count=read(fdold,buffer,sizeof(buffer)))>0)
-            //displaying the content
-              {
-                 printf("%s",buffer);
-             }
-             if(command_args1!=NULL){
-             fdold=open(command_args1, O_RDONLY);
-           while((count=read(fdold,buffer,sizeof(buffer)))>0)
-            //displaying the content
-              {
-                 printf("%s",buffer);
-             }
-             }
-            }
-            else if (strcmp(command_args, "-n") == 0)
-             {
-                 int fdold,count;
-             char buffer[2000];
-            fdold=open(command_args1, O_RDONLY);
-           while((count=read(fdold,buffer,sizeof(buffer)))>0)
-            //displaying the content
-              {
-                 printf("%s",buffer);
-
-             }
-
-             }
         }*/
+        
     }
     return 0;
 }

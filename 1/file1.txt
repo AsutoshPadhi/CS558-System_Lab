@@ -1,0 +1,3 @@
+This is a demo file.
+The word 'demo' will be searched and displayed.
+But the word 'Demo' will not be displayed.
