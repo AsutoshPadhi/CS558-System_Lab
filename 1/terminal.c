@@ -57,9 +57,13 @@ int main()
         char input[PATH_MAX];
         fgets(input, PATH_MAX, stdin);
 
+        /* main_cmd contains the first word of the command */
+        char main_cmd[PATH_MAX] = "";
+        strcpy(main_cmd, input);
+
         /* Get the command from the string and separate the command and the extra function */
-        char *command = strtok(input, "\n");
-        command = strtok(input, " ");
+        char *command = strtok(main_cmd, "\n");
+        command = strtok(main_cmd, " ");
 
         /* Check if it has any further instruction like -a */
         char *command_args = strtok(NULL, " ");
@@ -108,20 +112,126 @@ int main()
         }
         else if (strcmp(command, "cat") == 0)
         {
-            char cat_command[PATH_MAX] = "";
-            
-            /* Append the command 'cat' */
-            strcat(cat_command, command);
-            while(command_args)
+            if(strstr(input, ">") != NULL)
             {
-                /* Continuously append till the end of line */
-                strcat(cat_command, " ");
-                strcat(cat_command, command_args);
-                command_args = strtok(NULL, " ");
-            }
+                /* Get the last word of the string, i.e. the destination file */
+                char *dest_file = strrchr(input, ' ');
+                dest_file++;
+                
+                /* Remove \n from the end of the string due to fgets */
+                char *pos;
+                if ((pos=strchr(dest_file, '\n')) != NULL)
+                    *pos = '\0';
+                
+                /* Open the destination files */
+                FILE *fd;
+                fd = fopen(dest_file, "w");
 
-            /* Execute the system call */
-            system(cat_command);
+                /* Write contents into the destination file */
+                if(dest_file && *(dest_file + 1))
+                {
+                    char *file_name = command_args;
+                    while(file_name != NULL)
+                    {
+                        /* If '>' is encountered, ditch the entire process because writing was already done */
+                        if(strcmp(file_name, ">") == 0)
+                        {
+                            break;
+                        }
+
+                        /* Check if the file is present */
+                        if(access(file_name,R_OK) != -1)
+                        {
+                            /* Read file */
+                            FILE *fp = NULL;
+                            char *line = NULL;
+                            size_t len = 0;
+                            ssize_t read;
+
+                            fp = fopen(file_name, "r");
+                            while((read = getline(&line, &len, fp)) != -1)
+                            {
+                                /* Write to file */
+                                fprintf(fd, "%s", line);
+                            }
+                        }
+                        else
+                        {
+                            printf("The file %s was not found",file_name);
+                        }
+                        file_name = strtok(NULL, " ");
+                    }
+                    fclose(fd);
+                }
+                else
+                {
+                    printf("Error: Enter the destination file\n");
+                }
+            }
+            else if(command_args != NULL && strcmp(command_args, "-n") == 0)
+            {
+                int line_number = 0;
+                char *file_name = strtok(NULL, " ");
+                while(file_name != NULL)
+                {
+                    /* Check if the file is present */
+                    if(access(file_name,R_OK) != -1)
+                    {
+                        /* Read file */
+                        FILE *fp = NULL;
+                        char *line = NULL;
+                        size_t len = 0;
+                        ssize_t read;
+
+                        fp = fopen(file_name, "r");
+                        while((read = getline(&line, &len, fp)) != -1)
+                        {
+                            /* Increment the line number */
+                            line_number++;
+
+                            /* Print the lines of file */
+                            printf("\t%d:  %s",line_number, line);
+                        }
+                    }
+                    else
+                    {
+                        printf("The file %s was not found",file_name);
+                    }
+                    file_name = strtok(NULL, " ");
+                }
+            }
+            else if(command_args != NULL && strcmp(command_args, "-n") != 0)
+            {
+                char *file_name = command_args;
+                while(file_name != NULL)
+                {
+                    /* Check if the file is present */
+                    if(access(file_name,R_OK) != -1)
+                    {
+                        /* Read file */
+                        FILE *fp = NULL;
+                        char *line = NULL;
+                        size_t len = 0;
+                        ssize_t read;
+
+                        fp = fopen(file_name, "r");
+                        while((read = getline(&line, &len, fp)) != -1)
+                        {
+                            /* Print the lines of file */
+                            printf("%s", line);
+                        }
+                    }
+                    else
+                    {
+                        printf("The file %s was not found",file_name);
+                    }
+                    file_name = strtok(NULL, " ");
+                }
+            }
+            else
+            {
+                printf("Arguement Error : Enter a file name\n");
+            }
         }
         else if(strcmp(command, "mkdir") == 0)
         {
