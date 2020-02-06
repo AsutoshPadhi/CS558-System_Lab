@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "limits.h": "c",
+        "iostream": "cpp",
+        "fstream": "cpp"
+    }
+}
