@@ -3,40 +3,9 @@
 #include <string.h>
 #include <fstream>
 #include <unistd.h>
+#include <time.h>
 
 using namespace std;
-
-void childProcess(int i, int n, int fdc[][2], int fdp[][2])
-{
-    /* Close the writing end of fdc */
-    close(fdc[i][1]);
-
-    /* Read the message from parent */
-    char *message_to_child;
-    read(fdc[i][0], message_to_child, 100);
-
-    /* Close reading end of pipes */
-    close(fdc[i][0]);
-    close(fdp[i][0]);
-
-    // if(message_to_child[0] == '1')
-    // {
-    //     /* Roll the dice */
-    //     int lower = 1, upper = 6;
-    //     srand(time(0));
-    //     int dice = (rand() % (upper - lower + 1)) + lower;
-
-    //     /* Create message for parent */
-    //     char *message_to_parent = NULL;
-    //     sprintf(message_to_parent, "%d", dice);
-    //     write(fdp[i][1], message_to_parent, strlen(message_to_parent)+1);
-    //     close(fdp[i][1]);
-    // }
-    // else
-    // {
-    //     exit(0);
-    // }
-}
 
 int main(int argc, char** argv)
 {
@@ -116,11 +85,41 @@ int main(int argc, char** argv)
         pid[i] = fork();
 
         /* Call the child process */
-        childProcess(i, n_players, fd_to_child, fd_to_parent);
+        if(pid[i] == 0)
+        {
+            srand(time(0)*i);
+            while(1)
+            {
+                /* Close the writing end of fdc */
+                // close(fd_to_child[i][1]);
+
+                /* Read the message from parent */
+                char message_to_child[2];
+                read(fd_to_child[i][0], message_to_child, 2);
+
+                /* Close reading end of pipes */
+                // close(fd_to_child[i][0]);
+                // close(fd_to_parent[i][0]);
+
+                if(message_to_child[0] == '1')
+                {
+                    /* Roll the dice */
+                    int lower = 1, upper = 6;
+                    int dice = (rand() % (upper - lower + 1)) + lower;
+
+                    /* Create message for parent */
+                    char message_to_parent[2];
+                    sprintf(message_to_parent, "%d", dice);
+                    write(fd_to_parent[i][1], message_to_parent, strlen(message_to_parent)+1);
+                    // close(fd_to_parent[i][1]);
+                }
+            }
+            exit(0);
+        }
     }
 
     /* Keep a record of the current position of players */
-    int positions[n_players] = {0};
+    int position[n_players] = {0};
 
     /* Flag variable to suggest if game has ended */
     bool end_game = false;
@@ -129,36 +128,96 @@ int main(int argc, char** argv)
     int current_player = 0;
 
     /* Randomly select first player */
-    int lower = 1, upper = n_players;
+    int lower = 0, upper = n_players-1;
     srand(time(0));
     current_player = (rand() % (upper - lower + 1)) + lower;
 
     /* Start the game */
     while(!end_game)
     {
+        cout<<"\n\nPlayer "<<current_player+1<<" is playing ..."<<endl;
+        // usleep(1000000);
+
         /* Notify the child of current process to play dice */
         write(fd_to_child[current_player][1], "1", 2);
-        close(fd_to_child[current_player][1]);
+        // close(fd_to_child[current_player][1]);
 
         /* Read the response of child */
-        char *message_from_child = NULL;
+        char message_from_child[2];
         read(fd_to_parent[current_player][0], message_from_child, 100);
-        close(fd_to_parent[current_player][0]);
+        // close(fd_to_parent[current_player][0]);
 
         /* Move in board */
-        int dice = atoi(message_from_child);
+        int dice = message_from_child[0] - '0';
+        cout<<"Dice = "<<dice<<endl;
+        // usleep(1000000);
         
-        /* Search if the position is present in the map */
+        /* Update position accoring to dice */
+        position[current_player] += dice;
 
-        /* Update and print the position */
+        /* Search if there are any snakes or ladders */
+        auto snl = snakes_n_ladders.find(position[current_player]);
+        
+        /* Update the position */
+        if(snl != snakes_n_ladders.end())
+        {
+            position[current_player] = snl->second;
+            if(snl->first > snl->second)
+            {
+                cout<<"Oh no! The snake threw you back to "<<snl->second<<endl;
+            }
+            else
+            {
+                cout<<"Yes!!! a direct ladder to "<<snl->second<<endl;
+            }
+        }
+        // usleep(1000000);
+
+        /* Print the position */
+        for(int i=0; i<n_players; i++)
+        {
+            cout<<i+1<<":"<<position[i]<<"\t";
+        }
+        cout<<endl;
 
         /* Check if the game is over */
+        if(position[current_player] >= n_squares)
+        {
+            end_game = true;
+            cout<<"\nPlayer "<<current_player+1<<" has won the game\n\n";
+            break;
+        }
 
         /* Update current player */
         if(dice != 6)
         {
             current_player = (current_player + 1)%n_players;
         }
+
+        // usleep(2000000);
+    }
+
+    if(end_game)
+    {
+        /* Close all pipes */
+        cout<<"Gracefully closing all pipes"<<endl;
+        for(int i=0; i<n_players; i++)
+        {
+            close(fd_to_child[i][0]);
+            close(fd_to_child[i][1]);
+            close(fd_to_parent[i][0]);
+            close(fd_to_parent[i][1]);
+        }
+        
+        /* Kill all child processes */
+        cout<<"Gracefully exiting all child processes"<<endl;
+        for(int i=0; i<n_players; i++)
+        {
+            char kill_cmd[50];
+            sprintf(kill_cmd, "kill -s TERM %d", pid[i]);
+            system(kill_cmd);
+        }
+        cout<<endl;
     }
 
     return 0;
