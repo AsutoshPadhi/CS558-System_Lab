@@ -25,7 +25,84 @@
 #define BBLU "\033[1m\033[34m"
 #define BWHT "\033[1m\033[37m"
 
+/**
+ * @brief This function returns the mode in mode_t form
+ * 
+ * @param str 
+ * @return mode_t 
+ */
+mode_t str2modet(char *str)
+{
+    char proper[3];
+    int l = strlen(str);
+    if(l <= 3)
+    {
+        int i = 0;
+        int more = 3 - l;
+        while(more--)
+        {
+            proper[i++] = '0';
+        }
+        for(int j=0; j<l; j++)
+        {
+            proper[i++] = str[j];
+        }
+    }
+    else
+    {
+        str++;
+        strcpy(proper, str);
+    }
 
+    /* Array of bits */
+    char bits[8][3] = {"000","001","010","011","100","101","110","111"};
+    char bit_str[PATH_MAX] = "";
+    for(int i=0; i<3; i++)
+    {
+        if(bits[proper[i]-'0'][0] == '1')
+            strncat(bit_str, "r", 1);
+        else
+            strncat(bit_str, "-", 1);
+        if(bits[proper[i]-'0'][1] == '1')
+            strncat(bit_str, "w", 1);
+        else
+            strncat(bit_str, "-", 1);
+        if(bits[proper[i]-'0'][2] == '1')
+            strncat(bit_str, "x", 1);
+        else
+            strncat(bit_str, "-", 1);
+    }
+    
+
+    mode_t mode = 0;
+    if (bit_str[0] == 'r')
+        mode |= 0400;
+    if (bit_str[1] == 'w')
+        mode |= 0200;
+    if (bit_str[2] == 'x')
+        mode |= 0100;
+    if (bit_str[3] == 'r')
+        mode |= 0040;
+    if (bit_str[4] == 'w')
+        mode |= 0020;
+    if (bit_str[5] == 'x')
+        mode |= 0010;
+    if (bit_str[6] == 'r')
+        mode |= 0004;
+    if (bit_str[7] == 'w')
+        mode |= 0002;
+    if (bit_str[8] == 'x')
+        mode |= 0001;
+
+    // printf("\n%o", mode);
+    return mode;
+}
+
+/**
+ * @brief Main Function
+ * 
+ * @return int 
+ */
 int main()
 {
     char cwd[PATH_MAX];
@@ -291,6 +368,7 @@ int main()
         else if(strcmp(command, "mkdir") == 0)
         {
             /**************************************** mkdir ****************************************/
+
             if(command_args != NULL && strcmp(command_args, "-m") != 0)
             {
                 struct stat st = {0};
@@ -298,6 +376,7 @@ int main()
                 if(stat(command_args, &st) == -1)
                 {
                     /* Create a directory; Implement mkdir <filename> */
+                    umask(0);
                     if (mkdir(command_args, 0777) == -1)
                     {
                         printf("Error in creating directory\n");
@@ -315,17 +394,19 @@ int main()
                 /* To store the mode; Eg : 0777, 0733 */
                 char *mode_str = strtok(NULL, " ");
                 
+                /* Create the mode */
+                mode_t mode = str2modet(mode_str);
+
                 /* To store the filename */
                 char *file_name = strtok(NULL, " ");
 
-                /* Append and create the final command */
-                char md_command[PATH_MAX] = "";
-                snprintf(md_command, sizeof(md_command), "%s %s %s %s", command, command_args, mode_str, file_name);
-                
                 if(mode_str && file_name)
                 {
-                    /* System call */
-                    system(md_command);
+                    umask(0);
+                    if (mkdir(file_name, mode) == -1)
+                    {
+                        printf("Error in creating directory\n");
+                    }
                 }
                 else
                 {
