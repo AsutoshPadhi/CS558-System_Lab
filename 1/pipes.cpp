@@ -9,6 +9,12 @@ using namespace std;
 
 int main(int argc, char** argv)
 {
+    if(argc < 4)
+    {
+        cout<<"\nError : There should be 3 arguements - ./a.out <filename> <#sqaures> <#players>\n"<<endl;
+        exit(1);
+    }
+    
     /* Read input from command line arguement */
     string file_name = argv[1];
     int n_squares = atoi(argv[2]);
@@ -39,7 +45,8 @@ int main(int argc, char** argv)
             }
             else
             {
-                cout<<"Error: File has one start position more than end position in case of ladder";
+                cout<<"\nError: File has one start position more than end position in case of ladder\n"<<endl;
+                exit(1);
             }
         }
         else if(letter == "S")
@@ -50,12 +57,13 @@ int main(int argc, char** argv)
             }
             else
             {
-                cout<<"Error: File has one start position less than end position in case of snake";
+                cout<<"\nError: File has one start position less than end position in case of snake\n"<<endl;
+                exit(1);
             }
         }
         else
         {
-            cout<<"Error : Input File has an undefined character"<<endl;
+            cout<<"\nError : Input File has an undefined character\n"<<endl;
         }
     }
 
@@ -90,16 +98,9 @@ int main(int argc, char** argv)
             srand(time(0)*i);
             while(1)
             {
-                /* Close the writing end of fdc */
-                // close(fd_to_child[i][1]);
-
                 /* Read the message from parent */
                 char message_to_child[2];
                 read(fd_to_child[i][0], message_to_child, 2);
-
-                /* Close reading end of pipes */
-                // close(fd_to_child[i][0]);
-                // close(fd_to_parent[i][0]);
 
                 if(message_to_child[0] == '1')
                 {
@@ -111,7 +112,6 @@ int main(int argc, char** argv)
                     char message_to_parent[2];
                     sprintf(message_to_parent, "%d", dice);
                     write(fd_to_parent[i][1], message_to_parent, strlen(message_to_parent)+1);
-                    // close(fd_to_parent[i][1]);
                 }
             }
             exit(0);
@@ -136,21 +136,17 @@ int main(int argc, char** argv)
     while(!end_game)
     {
         cout<<"\n\nPlayer "<<current_player+1<<" is playing ..."<<endl;
-        // usleep(1000000);
 
         /* Notify the child of current process to play dice */
         write(fd_to_child[current_player][1], "1", 2);
-        // close(fd_to_child[current_player][1]);
 
         /* Read the response of child */
         char message_from_child[2];
         read(fd_to_parent[current_player][0], message_from_child, 100);
-        // close(fd_to_parent[current_player][0]);
 
         /* Move in board */
         int dice = message_from_child[0] - '0';
         cout<<"Dice = "<<dice<<endl;
-        // usleep(1000000);
         
         /* Update position accoring to dice */
         position[current_player] += dice;
@@ -171,7 +167,6 @@ int main(int argc, char** argv)
                 cout<<"Yes!!! a direct ladder to "<<snl->second<<endl;
             }
         }
-        // usleep(1000000);
 
         /* Print the position */
         for(int i=0; i<n_players; i++)
@@ -184,7 +179,7 @@ int main(int argc, char** argv)
         if(position[current_player] >= n_squares)
         {
             end_game = true;
-            cout<<"\nPlayer "<<current_player+1<<" has won the game\n\n";
+            cout<<"\nPlayer "<<current_player+1<<" has won the game !!!\n\n";
             break;
         }
 
@@ -194,7 +189,6 @@ int main(int argc, char** argv)
             current_player = (current_player + 1)%n_players;
         }
 
-        // usleep(2000000);
     }
 
     if(end_game)
