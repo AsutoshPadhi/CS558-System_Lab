@@ -9,8 +9,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <dirent.h>
-#include<readline/readline.h>
-#include<readline/history.h>
+#include <errno.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 
 #define RESET "\033[0m"
 #define KNRM "\x1B[0m"
@@ -132,6 +133,11 @@ int main()
         char *input = "";
         input = readline(handle);
 
+        if(input[strlen(input)-1] == ' ')
+        {
+            input[strlen(input)-1] = '\0';
+        }
+
         /* If nothing has been input */
         if(strlen(input) == 0)
         {
@@ -146,7 +152,7 @@ int main()
             break;
         }
 
-        /* Add history */
+        /* Add history to readline */
         add_history(input);
 
         /* main_cmd contains the first word of the command */
@@ -164,6 +170,7 @@ int main()
         if (strcmp(command, "ls") == 0)
         {
             /**************************************** ls ****************************************/
+            
             if (command_args != NULL && strcmp(command_args, "-a") == 0)
             {
                 /* Structure containing all the information about the files */
@@ -522,148 +529,272 @@ int main()
                 printf("Arguement not found\n");
             }
         }
-        else if (strcmp(command, "cp") == 0)
+        else if(strcmp(command, "cp") == 0)
         {
-            char *command_args1 = strtok(NULL, " ");
-            char *command_args2 = strtok(NULL, " ");
-            if (command_args != NULL && strcmp(command_args, "-u") == 0)
+            if(command_args != NULL && strcmp(command_args, "-u") == 0)
             {
-                FILE *fptr1, *fptr2;
-                char filename[100], c;
+                FILE *fp_src, *fp_dest;
+                char *file_name_src = strtok(NULL, " ");
+                char *file_name_dest = strtok(NULL, " ");
 
-                fptr1 = fopen(command_args1, "r");
-                if (fptr1 == NULL)
+                /* Open file for reading */
+                fp_src = fopen(file_name_src, "r");
+                if (fp_src == NULL)
                 {
-                    printf("Cannot open file %s \n", filename);
+                    printf("Cannot open file %s \n", file_name_src);
                     exit(0);
                 }
 
-                // Open another file for writing
-                fptr2 = fopen(command_args2, "w");
-                if (fptr2 == NULL)
+                /* Open another file for writing */
+                if(fopen(file_name_dest, "r"))
                 {
-                    printf("Cannot open file %s \n", filename);
+                    fp_dest = fopen(file_name_dest, "r");
+                    
+                    /* Check the timestamps of source */
+                    struct stat attr_src;
+                    stat(file_name_src, &attr_src);
+                    // printf("src time = %s\n", ctime(&attr_src.st_mtime));
+
+                    /* Check the timestamps of destination */
+                    struct stat attr_dest;
+                    stat(file_name_dest, &attr_dest);
+                    // printf("dest time = %s\n", ctime(&attr_dest.st_mtime));
+
+                    /* Check if timestamp of src is greater than destination */
+                    if(difftime(attr_src.st_mtime, attr_dest.st_mtime) > 0)
+                    {
+                        fp_dest = fopen(file_name_dest, "w");
+                        char c;
+
+                        /* Read contents from file */
+                        c = fgetc(fp_src);
+                        while (c != EOF)
+                        {
+                            fputc(c, fp_dest);
+                            c = fgetc(fp_src);
+                        }
+                        fclose(fp_src);
+                        fclose(fp_dest);
+                    }
+                    else
+                    {
+                        printf("Can not be coppied since the source file is older than the destination\n");
+                    }
+                }
+                if (fp_dest == NULL)
+                {
+                    printf("Cannot open file %s \n", file_name_dest);
                     exit(0);
                 }
-                // Read contents from file
-                c = fgetc(fptr1);
-                while (c != EOF)
+            }
+            else if(command_args != NULL && strcmp(command_args, "-u") != 0)
+            {                
+                /* Check if the command has a directory */
+                char *destination = strrchr(input, ' ');
+                destination++;
+                DIR *d = opendir(destination);
+                
+                if(d)
                 {
-                    fputc(c, fptr2);
-                    c = fgetc(fptr1);
+                    /* The last argument is a folder */
+
+                    /* Copy files to destination directory iteratively */
+                    char *file_name = command_args;
+                    while(file_name != NULL && file_name != (destination-1))
+                    {
+                        FILE *fp_src, *fp_dest;
+                        char file_name_dest[PATH_MAX] = "";
+                        sprintf(file_name_dest, "%s/%s", destination, file_name);
+                        fp_src = fopen(file_name, "r");
+                        fp_dest = fopen(file_name_dest, "w");
+
+                        if(fp_src && fp_dest)
+                        {
+                            char buffer[PATH_MAX] = {0};
+
+                            while(fgets(buffer, PATH_MAX, fp_src))
+                            {
+                                printf("%s", buffer);
+                                fputs(buffer, fp_dest);
+                            }
+                            fclose(fp_dest);
+                            fclose(fp_src);
+                        }
+                        else
+                        {
+                            if(!fp_src)
+                            {
+                                printf("Error: Can not open file 1\n");
+                            }
+                            else if(!fp_dest)
+                            {
+                                //printf("Error: Can not open file 2\n");
+                            }
+                            else
+                            {
+                                break;
+                            }
+                        }
+
+                        file_name = strtok(NULL, " ");
+                    }
+                    closedir(d);
                 }
-                fclose(fptr1);
-                fclose(fptr2);
+                /* If it is a file */
+                else if (ENOENT == errno)
+                {
+                    FILE *fp_src, *fp_dest;
+                    char filename[100], c;
+
+                    /* Open file for reading */
+                    fp_src = fopen(command_args, "r");
+                    if (fp_src == NULL)
+                    {
+                        printf("Cannot open file 1%s \n", filename);
+                        // exit(0);
+                    }
+
+                    /* Open another file for writing */
+                    fp_dest = fopen(destination, "w");
+                    if (fp_dest == NULL)
+                    {
+                        printf("Cannot open file 2%s \n", destination);
+                        // exit(0);
+                    }
+
+                    /* Read contents from file */
+                    c = fgetc(fp_src);
+                    while (c != EOF)
+                    {
+                        fputc(c, fp_dest);
+                        c = fgetc(fp_src);
+                    }
+                    fclose(fp_src);
+                    fclose(fp_dest);
+                }
             }
             else
             {
-
-                FILE *fptr1, *fptr2;
-                char filename[100], c;
-
-                fptr1 = fopen(command_args, "r");
-                if (fptr1 == NULL)
-                {
-                    printf("Cannot open file %s \n", filename);
-                    exit(0);
-                }
-
-                // Open another file for writing
-                fptr2 = fopen(command_args1, "w");
-                if (fptr2 == NULL)
-                {
-                    printf("Cannot open file %s \n", filename);
-                    exit(0);
-                }
-                // Read contents from file
-                c = fgetc(fptr1);
-                while (c != EOF)
-                {
-                    fputc(c, fptr2);
-                    c = fgetc(fptr1);
-                }
-                fclose(fptr1);
-                fclose(fptr2);
+                printf("Error: Arguement is not recognized\n");
             }
         }
         else if (strcmp(command, "sort") == 0)
         {
              
-            char *command_args1 = strtok(NULL, " ");
-            char *command_args2 = strtok(NULL, " ");
-            
-            char strTempData[1000];
-            char **strData = NULL; // String List
+            char *file_name = command_args;
+            FILE *fptr;
+            FILE *destination = NULL;
+
+            destination = fopen("out.txt", "a");// create a temperory txt 
+
+            while (file_name != NULL)
+            {
+                
+                if (strcmp(file_name, "-r") != 0)
+                {
+                    FILE *ptr1, *ptr2;
+                    char filename[100000], c;
+
+                    ptr1 = fopen(file_name, "r");
+                    if (ptr1 == NULL)
+                    {
+                        printf("Cannot open file %s \n", file_name);
+                        // exit(0);
+                    }
+                    
+                    c = fgetc(ptr1);
+                    while (c != EOF)
+                    {
+
+                        fputc(c, destination);
+                        c = fgetc(ptr1);
+                    }
+                    fclose(ptr1);
+                }
+                file_name = strtok(NULL, " ");
+            }
+
+            fclose(destination);
+            char Temp[1000000];
+            char **Data = NULL; // String List
+            char **Data_small = NULL;
             int i, j;
-            int noOfLines = 0;
+            int Lines = 0;
 
-            FILE *ptrFileLog = NULL;
-            FILE *ptrSummary = NULL;
-            if ( strcmp(command_args, "-r") != 0)
+            FILE *ptr1 = NULL;
+            FILE *ptr2 = NULL;
+            if (strcmp(command_args, "-r") != 0)
             {
-                ptrFileLog = fopen(command_args, "r");
+                ptr1 = fopen("out.txt", "r");
             }
-            else if( strcmp(command_args, "-r") == 0)
+            else if (strcmp(command_args, "-r") == 0)
             {
-                ptrFileLog = fopen(command_args1, "r");
+                ptr1 = fopen("out.txt", "r");
             }
-            ptrSummary = fopen("out.txt", "a");
-            if(ptrSummary  == NULL)
-            {
-                printf("not created");
-                return 1;
-            }
-
+             
             // Read and store in a string list.
-            while(fgets(strTempData, 1000, ptrFileLog) != NULL)
+            while (fgets(Temp, 1000, ptr1) != NULL)
             {
                 // Remove the trailing newline character
-                if (strchr(strTempData, '\n'))
-                    strTempData[strlen(strTempData) - 1] = '\0';
-                strData = (char **)realloc(strData, sizeof(char **) * (noOfLines + 1));
-                strData[noOfLines] = (char *)calloc(1000, sizeof(char));
-                strcpy(strData[noOfLines], strTempData);
-                noOfLines++;
-            }
-            // Sort the array.
-            for(i = 0; i < (noOfLines - 1); ++i)
-            {
-                for(j = 0; j < (noOfLines - i - 1); ++j)
+                if (strchr(Temp, '\n'))
+                    Temp[strlen(Temp) - 1] = '\0';
+                Data = (char **)realloc(Data, sizeof(char **) * (Lines + 1));
+                Data_small = (char **)realloc(Data_small, sizeof(char **) * (Lines + 1));
+                
+                Data[Lines] = (char *)calloc(1000, sizeof(char));
+                Data_small[Lines] = (char *)calloc(1000, sizeof(char));
+                
+                strcpy(Data[Lines], Temp);
+                strcpy(Data_small[Lines], Temp);
+                for(int i=0; i<strlen(Data_small[Lines]); i++)
                 {
-                    if(strcmp(strData[j], strData[j + 1]) > 0)
+                    char ch = Data_small[Lines][i];
+                    // putchar(ch);
+                    Data_small[Lines][i] = (tolower(ch));
+                }
+                
+                Lines++;
+            }
+
+            // use bubble sort for sorting array;
+            for (i = 0; i < (Lines - 1); ++i)
+            {
+                for (j = 0; j < (Lines - i - 1); ++j)
+                {
+                    if (strcmp(Data_small[j], Data_small[j + 1]) > 0)
                     {
-                        strcpy(strTempData, strData[j]);
-                        strcpy(strData[j], strData[j + 1]);
-                        strcpy(strData[j + 1], strTempData);
+                        strcpy(Temp, Data[j]);
+                        strcpy(Data[j], Data[j + 1]);
+                        strcpy(Data[j + 1], Temp);
                     }
                 }
             }
-            if(strcmp(command_args, "-r") != 0)   // Write it to outfile. file.
+            if (strcmp(command_args, "-r") != 0) // Write it to outfile. file.
             {
-                for(i = 0; i < noOfLines; i++)
+                for (i = 0; i < Lines; i++)
                 {
                     // fprintf(ptrSummary, "%s\n", strData[i]);
-                    printf("%s\n",strData[i]);
+                    printf("%s\n", Data[i]);
                 }
             }
-            else if(strcmp(command_args, "-r") == 0)
+            else if (strcmp(command_args, "-r") == 0)
             {
-                for(i =noOfLines-1; i>0; i--)
+                for (i = Lines - 1; i >= 0; i--)
                 {
                     // fprintf(ptrSummary, "%s\n", strData[i]);
-                    printf("%s\n",strData[i]);
+                    printf("%s\n", Data[i]);
                 }
             }
-            
+
             // free each string
-            for (i = 0; i < noOfLines; i++)
-                free(strData[i]);
-            
+            for (i = 0; i < Lines; i++)
+                free(Data[i]);
+
             // free string list.
-            remove("out.txt");
-            free(strData);
-            fclose(ptrFileLog);
-            fclose(ptrSummary);
+            remove("out.txt"); //remove the temp out.txt file
+            free(Data);
+            fclose(ptr1);
+            //fclose(ptr2);
         }
         else
         {
