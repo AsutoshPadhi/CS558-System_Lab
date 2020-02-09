@@ -1,0 +1,6 @@
+apple:fruit
+bat:toy
+cat:animal
+clothes:something you wear
+hello:world
+zebra:it is an animal
