@@ -4,6 +4,7 @@
 #include <fstream>
 #include <unistd.h>
 #include <time.h>
+#include <sys/wait.h>
 
 using namespace std;
 
@@ -66,6 +67,7 @@ int main(int argc, char** argv)
             cout<<"\nError : Input File has an undefined character\n"<<endl;
         }
     }
+    infile.close();
 
     /**
      * @brief Create pipes
@@ -96,11 +98,30 @@ int main(int argc, char** argv)
         if(pid[i] == 0)
         {
             srand(time(0)*i);
+
+            for(int j=0; j<n_players; j++)
+            {
+                if(i != j)
+                {
+                    close(fd_to_child[j][0]);
+                    close(fd_to_child[j][1]);
+                    close(fd_to_parent[j][0]);
+                    close(fd_to_parent[j][1]);
+                }
+            }
+            close(fd_to_child[i][1]);
+            
             while(1)
             {
                 /* Read the message from parent */
                 char message_to_child[2];
-                read(fd_to_child[i][0], message_to_child, 2);
+                int status = read(fd_to_child[i][0], message_to_child, 2);
+
+                if(status ==  0)
+                {
+                    cout<<"Closing Process"<<endl;
+                    exit(0);
+                }
 
                 if(message_to_child[0] == '1')
                 {
@@ -114,7 +135,6 @@ int main(int argc, char** argv)
                     write(fd_to_parent[i][1], message_to_parent, strlen(message_to_parent)+1);
                 }
             }
-            exit(0);
         }
     }
 
@@ -133,6 +153,7 @@ int main(int argc, char** argv)
     current_player = (rand() % (upper - lower + 1)) + lower;
 
     /* Start the game */
+    // close(fd_to_parent[current_player][0]);
     while(!end_game)
     {
         cout<<"\n\nPlayer "<<current_player+1<<" is playing ..."<<endl;
@@ -188,13 +209,18 @@ int main(int argc, char** argv)
         {
             current_player = (current_player + 1)%n_players;
         }
-
     }
 
     if(end_game)
     {
         /* Close all pipes */
-        cout<<"Gracefully closing all pipes"<<endl;
+        cout<<"Closing all pipes"<<endl;
+        cout<<"PIDs: "<<endl;
+        for(int i=0; i<n_players; i++)
+        {
+            cout<<pid[i]<<"\t";
+        }
+        cout<<endl;
         for(int i=0; i<n_players; i++)
         {
             close(fd_to_child[i][0]);
@@ -204,12 +230,12 @@ int main(int argc, char** argv)
         }
         
         /* Kill all child processes */
-        cout<<"Gracefully exiting all child processes"<<endl;
+        // cout<<"Gracefully exiting all child processes"<<endl;
         for(int i=0; i<n_players; i++)
         {
             char kill_cmd[50];
             sprintf(kill_cmd, "kill -s TERM %d", pid[i]);
-            system(kill_cmd);
+            // system(kill_cmd);
         }
         cout<<endl;
     }
