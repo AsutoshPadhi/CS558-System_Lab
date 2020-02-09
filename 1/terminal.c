@@ -607,20 +607,26 @@ int main()
         {
             if(command_args != NULL && strcmp(command_args, "-m") != 0)
             {
-                struct stat st = {0};
+                char *dir_name = command_args;
+                while(dir_name != NULL)
+                {
+                    struct stat st = {0};
 
-                if(stat(command_args, &st) == -1)
-                {
-                    /* Create a directory; Implement mkdir <filename> */
-                    umask(0);
-                    if (mkdir(command_args, 0777) == -1)
+                    if(stat(dir_name, &st) == -1)
                     {
-                        printf("Error in creating directory\n");
+                        /* Create a directory; Implement mkdir <filename> */
+                        umask(0);
+                        if (mkdir(dir_name, 0777) == -1)
+                        {
+                            printf("Error in creating directory\n");
+                        }
                     }
-                }
-                else
-                {
-                    printf("Directory with the same name exists\n");
+                    else
+                    {
+                        printf("Directory with the same name exists\n");
+                    }
+
+                    dir_name = strtok(NULL, " ");
                 }
             }
             else if(command_args != NULL && strcmp(command_args, "-m") == 0)
@@ -637,13 +643,19 @@ int main()
                 }
                 
                 /* Validate mode */
+                int flag = 1;
                 for(int i=0; i<strlen(mode_str); i++)
                 {
                     if(mode_str[i]-'0' > 7)
                     {
-                        printf("Error: Mode is invalid\n");
-                        continue;
+                        flag = 0;
+                        break;
                     }
+                }
+                if(!flag)
+                {
+                    printf("Error: Mode is invalid\n");
+                    continue;
                 }
                 
                 /* Create the mode */
