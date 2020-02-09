@@ -100,6 +100,18 @@ mode_t str2modet(char *str)
 }
 
 /**
+ * @brief To be used for qsort
+ * 
+ * @param A 
+ * @param B 
+ * @return int 
+ */ 
+int compareName(const void *const A, const void *const B)
+{
+    return strcmp((*(struct dirent **) A)->d_name, (*(struct dirent **) B)->d_name);
+}
+
+/**
  * @brief Main Function
  * 
  * @return int 
@@ -167,61 +179,276 @@ int main()
         char *command_args = strtok(NULL, " ");
 
         /* Check which command is input */
+
+/* ******************************************************* LS ******************************************************* */        
         if (strcmp(command, "ls") == 0)
-        {
-            /**************************************** ls ****************************************/
-            
+        {            
             if (command_args != NULL && strcmp(command_args, "-a") == 0)
             {
-                /* Structure containing all the information about the files */
-                struct dirent *dir_struct;
+                /* Check if ls of directory is required */
+                char *dir_name = strtok(NULL, " ");
 
-                /* Open the current directory */
-                DIR *d = opendir(".");
-
-                if(d)
+                /* If ls of current directory is required */
+                if(dir_name == NULL)
                 {
+                    /* Structure containing all the information about the files */
+                    struct dirent *dir_struct;
+                    struct dirent **dir_list;
+
+                    /* Open the current directory */
+                    DIR *d = opendir(".");
+
+                    /* Check if directory can be opened */
+                    if(!d)
+                    {
+                        printf("Error is opening the current directory\n");
+                        closedir(d);
+                        continue;
+                    }
+
+                    /* Count the number of files */
+                    int file_cnt = 0;
                     while((dir_struct = readdir(d)) != NULL)
                     {
-                        printf("%s\n",dir_struct->d_name);
-                    }   
+                        // printf("%s\n",dir_struct->d_name);
+                        file_cnt++;
+                    }
+
+                    /* Allocate space for list of directories */
+                    dir_list = malloc(file_cnt * sizeof(dir_list));
+                    if(!dir_list)
+                    {
+                        printf("Error: Memory exhausted\n");
+                        closedir(d);
+                        continue;
+                    }
+
+                    /* Reset the pointer of directories */
+                    rewinddir(d);
+
+                    /* Store the file names in dir_list */
+                    int i = 0;
+                    while((dir_struct = readdir(d)) != NULL)
+                    {
+                        dir_list[i++] = dir_struct;
+                    }
+
+                    /* Sort the file names */
+                    qsort(dir_list, file_cnt, sizeof(*dir_list), compareName);
+                    
+                    /* Display */
+                    for(int i=0; i<file_cnt; i++)
+                    {
+                        printf("%d)\t%s\n", i+1, dir_list[i]->d_name);
+                    }
+
+                    closedir(d);
                 }
+                /* If ls of specific directory is required */
                 else
                 {
-                    printf("Error is opening the current directory\n");
+                    while(dir_name != NULL)
+                    {
+                        /* Structure containing all the information about the files */
+                        struct dirent *dir_struct;
+                        struct dirent **dir_list;
+
+                        /* Open the current directory */
+                        DIR *d = opendir(dir_name);
+
+                        /* Check if directory can be opened */
+                        if(!d)
+                        {
+                            printf("Error: Can not open the directory\n");
+                            closedir(d);
+                            break;
+                        }
+
+                        /* Count the number of files */
+                        int file_cnt = 0;
+                        while((dir_struct = readdir(d)) != NULL)
+                        {
+                            file_cnt++;
+                        }
+
+                        /* Allocate space for list of directories */
+                        dir_list = malloc(file_cnt * sizeof(dir_list));
+                        if(!dir_list)
+                        {
+                            printf("Error: Memory exhausted\n");
+                            closedir(d);
+                            break;
+                        }
+
+                        /* Reset the pointer of directories */
+                        rewinddir(d);
+
+                        /* Store the file names in dir_list */
+                        int i = 0;
+                        while((dir_struct = readdir(d)) != NULL)
+                        {
+                            dir_list[i++] = dir_struct;
+                        }
+
+                        /* Sort the file names */
+                        qsort(dir_list, file_cnt, sizeof(*dir_list), compareName);
+                        
+                        /* Display */
+                        printf("\n%s : \n",dir_name);
+                        for(int i=0; i<file_cnt; i++)
+                        {
+                            printf("%d)\t%s\n", i+1, dir_list[i]->d_name);
+                        }
+
+                        closedir(d);
+                        dir_list = NULL;
+                        dir_struct = NULL;
+
+                        dir_name = strtok(NULL, " ");
+                    }
                 }
             }
             else if (command_args != NULL && strcmp(command_args, "-a") != 0)
             {
-                printf("Arguement is not recognized");
+                if(!opendir(command_args))
+                {
+                    printf("Arguement is not recognized");
+                }
+                else
+                {
+                    char *dir_name = command_args;
+
+                    while(dir_name != NULL)
+                    {
+                        /* Structure containing all the information about the files */
+                        struct dirent *dir_struct;
+                        struct dirent **dir_list;
+
+                        /* Open the current directory */
+                        DIR *d = opendir(dir_name);
+
+                        /* Check if directory can be opened */
+                        if(!d)
+                        {
+                            printf("Error: Can not open the directory\n");
+                            closedir(d);
+                            break;
+                        }
+
+                        /* Count the number of files */
+                        int file_cnt = 0;
+                        while((dir_struct = readdir(d)) != NULL)
+                        {
+                            if(dir_struct->d_name[0] != '.')
+                            {
+                                file_cnt++;
+                            }
+                        }
+
+                        /* Allocate space for list of directories */
+                        dir_list = malloc(file_cnt * sizeof(dir_list));
+                        if(!dir_list)
+                        {
+                            printf("Error: Memory exhausted\n");
+                            closedir(d);
+                            break;
+                        }
+
+                        /* Reset the pointer of directories */
+                        rewinddir(d);
+
+                        /* Store the file names in dir_list */
+                        int i = 0;
+                        while((dir_struct = readdir(d)) != NULL)
+                        {
+                            if(dir_struct->d_name[0] != '.')
+                            {
+                                dir_list[i++] = dir_struct;
+                            }
+                        }
+
+                        /* Sort the file names */
+                        qsort(dir_list, file_cnt, sizeof(*dir_list), compareName);
+                        
+                        /* Display */
+                        printf("\n%s : \n",dir_name);
+                        for(int i=0; i<file_cnt; i++)
+                        {
+                            printf("%d)\t%s\n", i+1, dir_list[i]->d_name);
+                        }
+
+                        closedir(d);
+                        dir_list = NULL;
+                        dir_struct = NULL;
+
+                        dir_name = strtok(NULL, " ");
+                    }
+                }
             }
             else
             {
                 /* Structure containing all the information about the files */
                 struct dirent *dir_struct;
+                struct dirent **dir_list;
 
                 /* Open the current directory */
                 DIR *d = opendir(".");
-                
-                if(d)
+
+                /* Check if directory can be opened */
+                if(!d)
                 {
-                    while((dir_struct = readdir(d)) != NULL)
+                    printf("Error: Can not open the directory\n");
+                    closedir(d);
+                    continue;
+                }
+
+                /* Count the number of files */
+                int file_cnt = 0;
+                while((dir_struct = readdir(d)) != NULL)
+                {
+                    if(dir_struct->d_name[0] != '.')
                     {
-                        if(dir_struct->d_name[0] != '.')
-                        {
-                            printf("%s\n",dir_struct->d_name);
-                        }
-                    }   
+                        file_cnt++;
+                    }
                 }
-                else
+
+                /* Allocate space for list of directories */
+                dir_list = malloc(file_cnt * sizeof(dir_list));
+                if(!dir_list)
                 {
-                    printf("Error is opening the current directory\n");
+                    printf("Error: Memory exhausted\n");
+                    closedir(d);
+                    continue;
                 }
+
+                /* Reset the pointer of directories */
+                rewinddir(d);
+
+                /* Store the file names in dir_list */
+                int i = 0;
+                while((dir_struct = readdir(d)) != NULL)
+                {
+                    if(dir_struct->d_name[0] != '.')
+                    {
+                        dir_list[i++] = dir_struct;
+                    }
+                }
+
+                /* Sort the file names */
+                qsort(dir_list, file_cnt, sizeof(*dir_list), compareName);
+                
+                /* Display */
+                for(int i=0; i<file_cnt; i++)
+                {
+                    printf("%d)\t%s\n", i+1, dir_list[i]->d_name);
+                }
+
+                closedir(d);
             }
         }
+/* ******************************************************* CD ******************************************************* */        
         else if (strcmp(command, "cd") == 0)
         {
-            /**************************************** cd ****************************************/
             /* Check if the directory in the input is present */
             DIR* dir = opendir(command_args);
             if(dir)
@@ -248,9 +475,10 @@ int main()
             handle[0] = '\0';
             snprintf(handle, sizeof(handle), "\n%s%s@%s:%s%s%s$ ", BGRN, username, hostname, BBLU, cwd, RESET);
         }
+
+/* ******************************************************* CAT ******************************************************* */        
         else if (strcmp(command, "cat") == 0)
         {
-            /**************************************** cat ****************************************/
             if(strstr(input, ">") != NULL)
             {
                 /* Get the last word of the string, i.e. the destination file */
@@ -372,10 +600,11 @@ int main()
                 printf("Arguement Error : Enter a file name\n");
             }
         }
+
+
+/* ******************************************************* MKDIR ******************************************************* */        
         else if(strcmp(command, "mkdir") == 0)
         {
-            /**************************************** mkdir ****************************************/
-
             if(command_args != NULL && strcmp(command_args, "-m") != 0)
             {
                 struct stat st = {0};
@@ -400,12 +629,34 @@ int main()
 
                 /* To store the mode; Eg : 0777, 0733 */
                 char *mode_str = strtok(NULL, " ");
+
+                if(!mode_str)
+                {
+                    printf("Error: Specify the mode\n");
+                    continue;
+                }
+                
+                /* Validate mode */
+                for(int i=0; i<strlen(mode_str); i++)
+                {
+                    if(mode_str[i]-'0' > 7)
+                    {
+                        printf("Error: Mode is invalid\n");
+                        continue;
+                    }
+                }
                 
                 /* Create the mode */
                 mode_t mode = str2modet(mode_str);
 
                 /* To store the filename */
                 char *file_name = strtok(NULL, " ");
+
+                if(!mode_str)
+                {
+                    printf("Error: Specify the directory name\n");
+                    continue;
+                }
 
                 if(mode_str && file_name)
                 {
@@ -425,110 +676,9 @@ int main()
                 printf("Arguement not found\n");
             }
         }
-        else if(strcmp(command, "grep") == 0)
-        {
-            /**************************************** grep ****************************************/
-            if(command_args != NULL && strcmp(command_args, "-n") == 0)
-            {
-                char *pattern_raw = strtok(NULL, " ");
-                char pattern[(int)strlen(pattern_raw)];
-                int j = 0;
-                for(int i=1; i<(int)strlen(pattern_raw)-1; i++)
-                {
-                    pattern[j++] = pattern_raw[i];
-                }
-                pattern[j] = '\0';
 
-                /* Take and check if filenames are valid */
-                int file_cnt = 0;
-                char *file_name = strtok(NULL, " ");
-                while(file_name != NULL)
-                {
-                    /* Check if the file is present */
-                    if(access(file_name,R_OK) != -1)
-                    {
-                        /* Read file */
-                        FILE *fp = NULL;
-                        char *line = NULL;
-                        size_t len = 0;
-                        ssize_t read;
 
-                        fp = fopen(file_name, "r");
-                        int line_cnt = 0;
-                        while((read = getline(&line, &len, fp)) != -1)
-                        {
-                            line_cnt++;
-                            /* Print the line if it contains the pattern */
-                            if(strstr(line, pattern) != NULL)
-                            {
-                                printf("%s : %d: %s", file_name, line_cnt, line);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        printf("The file %s was not found",file_name);
-                    }
-                    file_name = strtok(NULL, " ");
-                    file_cnt++;
-                }
-                if(file_name == NULL && file_cnt == 0)
-                {
-                    printf("Enter the file name\n");
-                }
-            }
-            else if(command_args != NULL && strcmp(command_args, "-n") != 0)
-            {
-                /* Extract pattern without quotes */
-                char pattern[(int)strlen(command_args)];
-                int j = 0;
-                for(int i=1; i<(int)strlen(command_args)-1; i++)
-                {
-                    pattern[j++] = command_args[i];
-                }
-                pattern[j] = '\0';
-
-                /* Take and check if filenames are valid */
-                int file_cnt = 0;
-                char *file_name = strtok(NULL, " ");
-                while(file_name != NULL)
-                {
-                    /* Check if the file is present */
-                    if(access(file_name,R_OK) != -1)
-                    {
-                        /* Read file */
-                        FILE *fp = NULL;
-                        char *line = NULL;
-                        size_t len = 0;
-                        ssize_t read;
-
-                        fp = fopen(file_name, "r");
-                        while((read = getline(&line, &len, fp)) != -1)
-                        {
-                            /* Print the line if it contains the pattern */
-                            if(strstr(line, pattern) != NULL)
-                            {
-                                printf("%s : %s", file_name, line);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        printf("The file %s was not found",file_name);
-                    }
-                    file_name = strtok(NULL, " ");
-                    file_cnt++;
-                }
-                if(file_name == NULL && file_cnt == 0)
-                {
-                    printf("Enter the file name\n");
-                }
-            }
-            else
-            {
-                printf("Arguement not found\n");
-            }
-        }
+/* ******************************************************* CP ******************************************************* */        
         else if(strcmp(command, "cp") == 0)
         {
             if(command_args != NULL && strcmp(command_args, "-u") == 0)
@@ -542,7 +692,7 @@ int main()
                 if (fp_src == NULL)
                 {
                     printf("Cannot open file %s \n", file_name_src);
-                    exit(0);
+                    continue;
                 }
 
                 /* Open another file for writing */
@@ -553,12 +703,10 @@ int main()
                     /* Check the timestamps of source */
                     struct stat attr_src;
                     stat(file_name_src, &attr_src);
-                    // printf("src time = %s\n", ctime(&attr_src.st_mtime));
 
                     /* Check the timestamps of destination */
                     struct stat attr_dest;
                     stat(file_name_dest, &attr_dest);
-                    // printf("dest time = %s\n", ctime(&attr_dest.st_mtime));
 
                     /* Check if timestamp of src is greater than destination */
                     if(difftime(attr_src.st_mtime, attr_dest.st_mtime) > 0)
@@ -600,7 +748,7 @@ int main()
 
                     /* Copy files to destination directory iteratively */
                     char *file_name = command_args;
-                    while(file_name != NULL && file_name != (destination-1))
+                    while(file_name != NULL && strcmp(file_name, destination) != 0)
                     {
                         FILE *fp_src, *fp_dest;
                         char file_name_dest[PATH_MAX] = "";
@@ -614,7 +762,6 @@ int main()
 
                             while(fgets(buffer, PATH_MAX, fp_src))
                             {
-                                printf("%s", buffer);
                                 fputs(buffer, fp_dest);
                             }
                             fclose(fp_dest);
@@ -651,7 +798,6 @@ int main()
                     if (fp_src == NULL)
                     {
                         printf("Cannot open file 1%s \n", filename);
-                        // exit(0);
                     }
 
                     /* Open another file for writing */
@@ -659,7 +805,6 @@ int main()
                     if (fp_dest == NULL)
                     {
                         printf("Cannot open file 2%s \n", destination);
-                        // exit(0);
                     }
 
                     /* Read contents from file */
@@ -678,6 +823,8 @@ int main()
                 printf("Error: Arguement is not recognized\n");
             }
         }
+
+/* ******************************************************* SORT ******************************************************* */        
         else if (strcmp(command, "sort") == 0)
         {
              
@@ -717,6 +864,8 @@ int main()
             fclose(destination);
             char Temp[1000000];
             char **Data = NULL; // String List
+            
+            /* Data_small is a copy of Data but the lowercase and uppercase is interchanged for comparison */
             char **Data_small = NULL;
             int i, j;
             int Lines = 0;
@@ -750,11 +899,15 @@ int main()
                 {
                     char ch = Data_small[Lines][i];
                     // putchar(ch);
-                    Data_small[Lines][i] = (tolower(ch));
+                    if(ch >= 'A' && ch <= 'Z')
+                        Data_small[Lines][i] = (tolower(ch));
+                    else if(ch >= 'a' && ch <= 'z')
+                        Data_small[Lines][i] = (toupper(ch));
                 }
-                
+                // printf("%s\n",Data_small[Lines]);
                 Lines++;
             }
+            // printf("---\n");
 
             // use bubble sort for sorting array;
             for (i = 0; i < (Lines - 1); ++i)
@@ -766,6 +919,11 @@ int main()
                         strcpy(Temp, Data[j]);
                         strcpy(Data[j], Data[j + 1]);
                         strcpy(Data[j + 1], Temp);
+
+                        char Temp_temp[10000];
+                        strcpy(Temp_temp, Data_small[j]);
+                        strcpy(Data_small[j], Data_small[j + 1]);
+                        strcpy(Data_small[j + 1], Temp_temp);
                     }
                 }
             }
@@ -795,6 +953,136 @@ int main()
             free(Data);
             fclose(ptr1);
             //fclose(ptr2);
+        }
+
+
+/* ******************************************************* GREP ******************************************************* */        
+        else if(strcmp(command, "grep") == 0)
+        {
+            if(command_args != NULL && strcmp(command_args, "-n") == 0)
+            {
+                /* Remove inital quotes from the pattern if they are present */
+                char *pattern_raw = strtok(NULL, " ");
+                char pattern[(int)strlen(pattern_raw)];
+                if(pattern_raw[0] == '\'' || pattern_raw[0] == '"')
+                {
+                    pattern_raw++;
+                }
+                int j = 0;
+                for(int i=0; i<(int)strlen(pattern_raw); i++)
+                {
+                    pattern[j++] = pattern_raw[i];
+                }
+                if(pattern_raw[j-1] == '\'' || pattern_raw[j-1] == '"')
+                {
+                    pattern[j-1] = '\0';
+                }
+                else
+                {
+                    pattern[j] = '\0';
+                }
+
+                /* Take and check if filenames are valid */
+                int file_cnt = 0;
+                char *file_name = strtok(NULL, " ");
+                while(file_name != NULL)
+                {
+                    /* Check if the file is present */
+                    if(access(file_name,R_OK) != -1)
+                    {
+                        /* Read file */
+                        FILE *fp = NULL;
+                        char *line = NULL;
+                        size_t len = 0;
+                        ssize_t read;
+
+                        fp = fopen(file_name, "r");
+                        int line_cnt = 0;
+                        while((read = getline(&line, &len, fp)) != -1)
+                        {
+                            line_cnt++;
+                            /* Print the line if it contains the pattern */
+                            if(strstr(line, pattern) != NULL)
+                            {
+                                printf("%s : %d: %s", file_name, line_cnt, line);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        printf("The file %s was not found",file_name);
+                    }
+                    file_name = strtok(NULL, " ");
+                    file_cnt++;
+                }
+                if(file_name == NULL && file_cnt == 0)
+                {
+                    printf("Enter the file name\n");
+                }
+            }
+            else if(command_args != NULL && strcmp(command_args, "-n") != 0)
+            {
+                /* Remove inital quotes from the pattern if they are present */
+                char *pattern_raw = command_args;
+                char pattern[(int)strlen(pattern_raw)];
+                if(pattern_raw[0] == '\'' || pattern_raw[0] == '"')
+                {
+                    pattern_raw++;
+                }
+                int j = 0;
+                for(int i=0; i<(int)strlen(pattern_raw); i++)
+                {
+                    pattern[j++] = pattern_raw[i];
+                }
+                if(pattern_raw[j-1] == '\'' || pattern_raw[j-1] == '"')
+                {
+                    pattern[j-1] = '\0';
+                }
+                else
+                {
+                    pattern[j] = '\0';
+                }
+
+                /* Take and check if filenames are valid */
+                int file_cnt = 0;
+                char *file_name = strtok(NULL, " ");
+                while(file_name != NULL)
+                {
+                    /* Check if the file is present */
+                    if(access(file_name,R_OK) != -1)
+                    {
+                        /* Read file */
+                        FILE *fp = NULL;
+                        char *line = NULL;
+                        size_t len = 0;
+                        ssize_t read;
+
+                        fp = fopen(file_name, "r");
+                        while((read = getline(&line, &len, fp)) != -1)
+                        {
+                            /* Print the line if it contains the pattern */
+                            if(strstr(line, pattern) != NULL)
+                            {
+                                printf("%s : %s", file_name, line);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        printf("The file %s was not found",file_name);
+                    }
+                    file_name = strtok(NULL, " ");
+                    file_cnt++;
+                }
+                if(file_name == NULL && file_cnt == 0)
+                {
+                    printf("Enter the file name\n");
+                }
+            }
+            else
+            {
+                printf("Arguement not found\n");
+            }
         }
         else
         {
